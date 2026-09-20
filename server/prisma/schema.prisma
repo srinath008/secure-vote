@@ -1,0 +1,107 @@
+// Prisma schema for SecureVote — FSM-Based Electronic Voting System
+//
+// Data model mirrors the HDL modules:
+//   VotingSession.q1/q0  ← StateReg.hdl  (2-bit state register)
+//   VotingSession.latch  ← SRLatch.hdl   (voter enable latch)
+//   Candidate.tally      ← Counter2.hdl  (tally registers)
+//   AuditLog             ← replaces .tst/.out verification scripts
+//
+// ANONYMITY RULE: Ballot must NEVER store a voter reference.
+//   The link between voter and choice exists only for the duration of the
+//   commit transaction and is never persisted. Voter.hasVoted records *that*
+//   they voted; Ballot records *what* was voted for.
+//
+// CANDIDATE LIMIT: Slots 0–3 only. The priority encoder is 4-input (matching
+//   the 74LS148 equivalent). Adding more candidates requires a hardware-width
+//   change (wider encoder/decoder), not a code change. This is a documented
+//   architectural limitation.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Voter {
+  id                   String        @id @default(uuid())
+  rollNumber           String        @unique          // institutional ID, used as login
+  name                 String
+  passwordHash         String
+  role                 Role          @default(VOTER)
+  hasVoted             Boolean       @default(false)
+  voteSessionExpiresAt DateTime?     // tracks the 3-minute voting window
+  lockedUntil          DateTime?     // tracks the 20-minute lockout penalty
+  createdAt            DateTime      @default(now())
+  session              VotingSession?
+}
+
+enum Role {
+  VOTER
+  ADMIN
+}
+
+model Election {
+  id         String          @id @default(uuid())
+  title      String
+  status     ElectionStatus  @default(SETUP)
+  openedAt   DateTime?
+  closedAt   DateTime?
+  candidates Candidate[]
+  sessions   VotingSession[]
+  ballots    Ballot[]
+}
+
+enum ElectionStatus {
+  SETUP
+  OPEN
+  CLOSED
+}
+
+model Candidate {
+  id         String   @id @default(uuid())
+  electionId String
+  election   Election @relation(fields: [electionId], references: [id])
+  name       String
+  slot       Int      // 0..3 — the physical button index / encoder input line
+  tally      Int      @default(0)  // Counter2 equivalent; written ONLY in FSMEngine.step()
+
+  @@unique([electionId, slot])
+}
+
+model VotingSession {
+  id         String   @id @default(uuid())
+  voterId    String   @unique
+  voter      Voter    @relation(fields: [voterId], references: [id])
+  electionId String
+  election   Election @relation(fields: [electionId], references: [id])
+  q1         Int      @default(0)    // state register bit 1 (MSB)
+  q0         Int      @default(0)    // state register bit 0 (LSB)
+  latch      Boolean  @default(false) // SR latch output Q
+  selSlot    Int?                    // encoder output captured at lock time (S2 entry)
+  updatedAt  DateTime @updatedAt
+}
+
+// Ballot: anonymous by construction — NO voter reference.
+// See ANONYMITY RULE above.
+model Ballot {
+  id          String   @id @default(uuid())
+  electionId  String
+  election    Election @relation(fields: [electionId], references: [id])
+  candidateId String
+  castAt      DateTime @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  electionId String   // Group by election. DO NOT use sessionId/voterId to preserve absolute anonymity.
+  fromState  Int      // state code 0-3
+  toState    Int      // state code 0-3
+  inputsJson String   // JSON: { EN, V, SEL, ACK }
+  commitFlag Boolean  // true only for the S2_LOCKED tick
+  createdAt  DateTime @default(now())
+  prevHash   String?  // Cryptographic link to previous log (Tamper-evidence)
+  hash       String   @default("") // SHA-256 hash of this log
+}
