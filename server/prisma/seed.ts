@@ -10,13 +10,15 @@
 
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import fs from 'fs';
+import path from 'path';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Seeding SecureVote database…');
+  console.log('🌱 Seeding SecureVote database with real class list...');
 
-  // ── Admin ─────────────────────────────────────────────────────────────────
+  // 1. Admin
   const adminHash = await bcrypt.hash('admin123', 12);
   const admin = await prisma.voter.upsert({
     where:  { rollNumber: 'ADMIN001' },
@@ -28,37 +30,40 @@ async function main() {
       role:         'ADMIN',
     },
   });
-  console.log(`  ✓ Admin:  ADMIN001 / admin123  (id: ${admin.id})`);
+  console.log(`  ✔ Admin:  ADMIN001 / admin123`);
 
-  // ── 30 Voters ─────────────────────────────────────────────────────────────
-  const voterHash = await bcrypt.hash('vote123', 12);
-  const voterNames = [
-    'Aarav Sharma',    'Ananya Krishnan',  'Arjun Mehta',     'Bhavna Iyer',
-    'Chetan Rao',      'Deepika Nair',     'Elan Subramaniam','Fathima Siddiqui',
-    'Gautam Verma',    'Harini Pillai',    'Ishan Bose',      'Jaya Patel',
-    'Karthik Murthy',  'Lakshmi Reddy',    'Manav Joshi',     'Nithya Rajan',
-    'Om Prakash',      'Priya Menon',      'Quamar Ansari',   'Ritu Agarwal',
-    'Siddharth Kumar', 'Tanya Singh',      'Ujwal Hegde',     'Vandana Choudhary',
-    'Waseem Ali',      'Xenia Thomas',     'Yash Gupta',      'Zara Khan',
-    'Akash Deshpande', 'Bhavya Nambiar',
-  ];
+  // 2. Class Voters
+  const classDataPath = path.join(__dirname, '../scripts/class_data.json');
+  const classData = JSON.parse(fs.readFileSync(classDataPath, 'utf8'));
 
-  for (let i = 1; i <= 30; i++) {
-    const rollNumber = `CB25${String(i).padStart(3, '0')}`;
+  let csvContent = 'Roll Number,Name,PIN (Password)\n';
+
+  console.log(`  ✔ Found ${classData.length} students in class list.`);
+
+  for (const student of classData) {
+    // Generate a random 4-digit PIN for each student
+    const pin = Math.floor(1000 + Math.random() * 9000).toString();
+    const hash = await bcrypt.hash(pin, 12);
+    
     await prisma.voter.upsert({
-      where:  { rollNumber },
-      update: {},
+      where:  { rollNumber: student.roll },
+      update: {}, // Don't overwrite if they already exist
       create: {
-        rollNumber,
-        name:         voterNames[i - 1],
-        passwordHash: voterHash,
+        rollNumber:   student.roll,
+        name:         student.name,
+        passwordHash: hash,
         role:         'VOTER',
       },
     });
-  }
-  console.log('  ✓ 30 voters: CB25001…CB25030 / vote123');
 
-  // ── Election ──────────────────────────────────────────────────────────────
+    csvContent += `${student.roll},"${student.name}",${pin}\n`;
+  }
+  
+  const csvPath = path.join(__dirname, '../scripts/student_credentials.csv');
+  fs.writeFileSync(csvPath, csvContent);
+  console.log(`  ✔ Credentials exported to: server/scripts/student_credentials.csv (DO NOT COMMIT THIS FILE)`);
+
+  // 3. Election
   const existing = await prisma.election.findFirst({
     where: { title: 'Class Representative Election 2026' },
   });
@@ -79,19 +84,13 @@ async function main() {
       },
       include: { candidates: true },
     });
-    console.log(`  ✓ Election: "${election.title}" (SETUP)`);
-    for (const c of election.candidates) {
-      console.log(`    Slot ${c.slot}: ${c.name}`);
-    }
-  } else {
-    console.log(`  ℹ Election already exists (id: ${existing.id}), skipping.`);
+    console.log(`  ✔ Election: "${election.title}" (SETUP)`);
   }
 
   console.log('\n✅ Seed complete.');
-  console.log('\n── Demo Credentials ────────────────────────────────');
-  console.log('  Admin:  ADMIN001  / admin123');
-  console.log('  Voter:  CB25001   / vote123  (…through CB25030)');
-  console.log('────────────────────────────────────────────────────\n');
+  console.log('\n🎯 Next steps:');
+  console.log('  1. Log in as ADMIN001 to open the election.');
+  console.log('  2. Distribute the 4-digit PINs from `server/scripts/student_credentials.csv` to your classmates.');
 }
 
 main()

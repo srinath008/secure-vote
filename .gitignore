@@ -17,3 +17,7 @@ server/dist/
 *.log
 npm-debug.log*
 .neon
+
+# Secrets
+student_credentials.csv
+credentials.csv
