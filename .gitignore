@@ -1,0 +1,19 @@
+node_modules/
+dist/
+.env
+*.env.local
+.DS_Store
+Thumbs.db
+
+# Prisma
+server/prisma/dev.db
+server/prisma/migrations/
+
+# Build
+client/dist/
+server/dist/
+
+# Logs
+*.log
+npm-debug.log*
+.neon
