@@ -3,9 +3,18 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
+import nodemailer from 'nodemailer';
 import { prisma } from '../lib/prisma';
 
 const router = Router();
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'smtp.office365.com',
+  port: parseInt(process.env.SMTP_PORT || '587'),
+  secure: false,
+  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+});
+
 
 // Rate limiter: 10 login attempts per 15 minutes per IP
 const loginLimiter = rateLimit({
@@ -24,7 +33,8 @@ const registerSchema = z.object({
 
 const loginSchema = z.object({
   rollNumber: z.string(),
-  password:   z.string(),
+  password:   z.string().optional(),
+  otp:        z.string().optional(),
 });
 
 // POST /api/auth/register
@@ -61,6 +71,33 @@ router.post('/register', async (req, res, next) => {
   }
 });
 
+
+const sendOtpSchema = z.object({ rollNumber: z.string() });
+router.post('/send-otp', loginLimiter, async (req, res, next) => {
+  try {
+    const body = sendOtpSchema.safeParse(req.body);
+    if (!body.success) return res.status(400).json({ error: 'Roll number required' });
+    const { rollNumber } = body.data;
+    const voter = await prisma.voter.findUnique({ where: { rollNumber } });
+    if (!voter || voter.role !== 'VOTER') return res.status(404).json({ error: 'Voter not found' });
+    if (voter.hasVoted) return res.status(403).json({ error: 'You have already voted.' });
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiresAt = new Date(Date.now() + 5 * 60000);
+    await prisma.voter.update({ where: { id: voter.id }, data: { otpCode, otpExpiresAt } });
+    const email = rollNumber.toLowerCase() + '@cb.students.amrita.edu';
+    if (process.env.SMTP_USER) {
+      await transporter.sendMail({
+        from: process.env.SMTP_USER,
+        to: email,
+        subject: 'SecureVote Login OTP',
+        text: 'Your SecureVote login OTP is: ' + otpCode + '. It expires in 5 minutes.',
+      });
+    } else {
+      console.log('[DEV] SMTP not configured. OTP for ' + email + ' is: ' + otpCode);
+    }
+    res.json({ message: 'OTP sent to Outlook email', email });
+  } catch (err) { next(err); }
+});
 // POST /api/auth/login
 router.post('/login', loginLimiter, async (req, res, next) => {
   try {
@@ -70,19 +107,20 @@ router.post('/login', loginLimiter, async (req, res, next) => {
       return;
     }
 
-    const { rollNumber, password } = body.data;
+    
+    const { rollNumber, password, otp } = body.data;
     let voter = await prisma.voter.findUnique({ where: { rollNumber } });
-    if (!voter) {
-      res.status(401).json({ error: 'Invalid credentials' });
-      return;
+    if (!voter) return res.status(401).json({ error: 'Invalid credentials' });
+    if (voter.role === 'ADMIN') {
+      if (!password || !voter.passwordHash) return res.status(401).json({ error: 'Admin password required' });
+      const valid = await bcrypt.compare(password, voter.passwordHash);
+      if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
+    } else {
+      if (!otp || otp !== voter.otpCode || !voter.otpExpiresAt || voter.otpExpiresAt < new Date()) {
+        return res.status(401).json({ error: 'Invalid or expired OTP' });
+      }
+      await prisma.voter.update({ where: { id: voter.id }, data: { otpCode: null, otpExpiresAt: null } });
     }
-
-    const valid = await bcrypt.compare(password, voter.passwordHash);
-    if (!valid) {
-      res.status(401).json({ error: 'Invalid credentials' });
-      return;
-    }
-
     // --- Reject login if already voted ---
     if (voter.role === 'VOTER' && voter.hasVoted) {
       res.status(403).json({ error: 'You have already cast your vote. Multiple logins are not permitted.' });

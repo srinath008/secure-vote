@@ -56,9 +56,13 @@ export interface ElectionData {
 // ── API clients ────────────────────────────────────────────────────────────
 
 export const authApi = {
-  login:    (rollNumber: string, password: string) =>
+  login: (rollNumber: string, password?: string, otp?: string) =>
     apiFetch<{ id: string; name: string; role: string }>('/api/auth/login', {
-      method: 'POST', body: JSON.stringify({ rollNumber, password }),
+      method: 'POST', body: JSON.stringify({ rollNumber, password, otp }),
+    }),
+  sendOtp: (rollNumber: string) =>
+    apiFetch<{ message: string; email: string }>('/api/auth/send-otp', {
+      method: 'POST', body: JSON.stringify({ rollNumber }),
     }),
   logout:   () => apiFetch('/api/auth/logout', { method: 'POST' }),
   register: (rollNumber: string, name: string, password: string) =>

@@ -6,21 +6,48 @@ import { useAuth } from '../App';
 export default function LoginPage() {
   const { setUser } = useAuth();
   const navigate = useNavigate();
+  const [step, setStep] = useState<'ROLL' | 'PASSWORD' | 'OTP'>('ROLL');
   const [roll, setRoll] = useState('');
   const [pwd, setPwd] = useState('');
+  const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleNext = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setMessage('');
+    const cleanRoll = roll.trim().toUpperCase();
+
+    if (cleanRoll.startsWith('ADMIN')) {
+      setStep('PASSWORD');
+      return;
+    }
+
+    // Voter flow - Send OTP
+    setLoading(true);
+    try {
+      const res = await authApi.sendOtp(cleanRoll);
+      setMessage(res.message);
+      setStep('OTP');
+    } catch (err: any) {
+      setError(err.message || 'Failed to send OTP.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      const u = await authApi.login(roll.trim().toUpperCase(), pwd);
+      const u = await authApi.login(roll.trim().toUpperCase(), pwd, otp);
       setUser(u);
       navigate(u.role === 'ADMIN' ? '/admin' : '/election');
-    } catch {
-      setError('Invalid roll number or password.');
+    } catch (err: any) {
+      setError(err.message || 'Invalid credentials.');
     } finally {
       setLoading(false);
     }
@@ -28,7 +55,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex">
-      {/* ── Left panel: branding ────────────────────────────────────── */}
+      {/* --- Left panel: branding --- */}
       <div className="hidden lg:flex lg:w-2/5 bg-gray-950 flex-col justify-between p-12 relative overflow-hidden">
         {/* decorative grid */}
         <div className="absolute inset-0 opacity-5"
@@ -58,7 +85,7 @@ export default function LoginPage() {
               <span className="text-emerald-400">Secured by hardware logic.</span>
             </h1>
             <p className="text-gray-400 mt-4 text-sm leading-relaxed">
-              Every vote passes through a real Finite State Machine — the same
+              Every vote passes through a real Finite State Machine – the same
               Boolean logic as a physical EVM. Tamper-evident. Verifiable.
               Anonymous by construction.
             </p>
@@ -74,7 +101,7 @@ export default function LoginPage() {
             ].map(({ s, label, color }) => (
               <div key={s} className="flex items-center gap-3">
                 <div className={`w-2 h-2 rounded-full ${color}`} />
-                <span className="text-gray-400 text-xs font-mono">{s} — {label}</span>
+                <span className="text-gray-400 text-xs font-mono">{s} – {label}</span>
               </div>
             ))}
           </div>
@@ -82,11 +109,11 @@ export default function LoginPage() {
 
         {/* bottom attribution */}
         <div className="relative z-10">
-          <p className="text-gray-600 text-xs">Amrita School of Engineering · EOC Project</p>
+          <p className="text-gray-600 text-xs">Amrita School of Engineering • EOC Project</p>
         </div>
       </div>
 
-      {/* ── Right panel: form ───────────────────────────────────────── */}
+      {/* --- Right panel: form --- */}
       <div className="flex-1 flex items-center justify-center bg-gray-50 p-6">
         <div className="w-full max-w-sm">
           {/* mobile logo */}
@@ -100,37 +127,75 @@ export default function LoginPage() {
           </div>
 
           <h2 className="text-2xl font-bold text-gray-900 mb-1">Sign in</h2>
-          <p className="text-gray-500 text-sm mb-8">Enter your institution roll number and password.</p>
+          <p className="text-gray-500 text-sm mb-8">
+            {step === 'ROLL' ? 'Enter your institution roll number.' :
+             step === 'PASSWORD' ? 'Enter your admin password.' : 
+             'Check your Outlook email for the OTP.'}
+          </p>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5" htmlFor="roll">
-                Roll Number
-              </label>
-              <input
-                id="roll"
-                type="text"
-                value={roll}
-                onChange={e => setRoll(e.target.value)}
-                placeholder="CB25001 or ADMIN001"
-                required
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white placeholder-gray-400 font-mono uppercase"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5" htmlFor="pwd">
-                Password
-              </label>
-              <input
-                id="pwd"
-                type="password"
-                value={pwd}
-                onChange={e => setPwd(e.target.value)}
-                placeholder="••••••••"
-                required
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white"
-              />
-            </div>
+          <form onSubmit={step === 'ROLL' ? handleNext : handleLogin} className="space-y-5">
+            {step === 'ROLL' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5" htmlFor="roll">
+                  Roll Number
+                </label>
+                <input
+                  id="roll"
+                  type="text"
+                  value={roll}
+                  onChange={e => setRoll(e.target.value)}
+                  placeholder="CB25001 or ADMIN001"
+                  required
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white placeholder-gray-400 font-mono uppercase"
+                />
+              </div>
+            )}
+
+            {step === 'PASSWORD' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5" htmlFor="pwd">
+                  Admin Password
+                </label>
+                <input
+                  id="pwd"
+                  type="password"
+                  value={pwd}
+                  onChange={e => setPwd(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  autoFocus
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white"
+                />
+              </div>
+            )}
+
+            {step === 'OTP' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5" htmlFor="otp">
+                  6-Digit OTP
+                </label>
+                <input
+                  id="otp"
+                  type="text"
+                  value={otp}
+                  onChange={e => setOtp(e.target.value)}
+                  placeholder="123456"
+                  required
+                  autoFocus
+                  maxLength={6}
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white font-mono text-center tracking-widest text-lg"
+                />
+              </div>
+            )}
+
+            {message && (
+              <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm px-4 py-2.5 rounded-lg">
+                <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                {message}
+              </div>
+            )}
 
             {error && (
               <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2.5 rounded-lg">
@@ -146,13 +211,23 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-semibold rounded-lg text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
             >
-              {loading ? 'Signing in…' : 'Sign in →'}
+              {step === 'ROLL' ? (loading ? 'Sending OTP...' : 'Next →') : (loading ? 'Signing in...' : 'Sign in')}
             </button>
+            
+            {step !== 'ROLL' && (
+              <button
+                type="button"
+                onClick={() => { setStep('ROLL'); setError(''); setMessage(''); setOtp(''); setPwd(''); }}
+                className="w-full py-2 text-sm text-gray-500 hover:text-gray-700"
+              >
+                ← Back
+              </button>
+            )}
           </form>
 
           <div className="mt-8 pt-6 border-t border-gray-200">
             <p className="text-xs text-gray-400 text-center">
-              Secured by FSM-enforced voting logic · Neon PostgreSQL · JWT Auth
+              Secured by FSM-enforced voting logic • Neon PostgreSQL • JWT Auth
             </p>
           </div>
         </div>

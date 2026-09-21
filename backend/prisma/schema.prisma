@@ -29,7 +29,9 @@ model Voter {
   id                   String        @id @default(uuid())
   rollNumber           String        @unique          // institutional ID, used as login
   name                 String
-  passwordHash         String
+  passwordHash         String?       // optional now, voters use OTP, admins use password
+  otpCode              String?
+  otpExpiresAt         DateTime?
   role                 Role          @default(VOTER)
   hasVoted             Boolean       @default(false)
   voteSessionExpiresAt DateTime?     // tracks the 3-minute voting window
