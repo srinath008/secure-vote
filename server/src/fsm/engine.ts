@@ -99,6 +99,14 @@ export async function fsmStep(voterId: string, action: FsmAction): Promise<FsmSt
 
       const voter = await tx.voter.findUniqueOrThrow({ where: { id: voterId } });
       const now = new Date();
+
+      if (voter.role === 'VOTER' && voter.lockedUntil && now < voter.lockedUntil) {
+        throw Object.assign(
+          new Error(`You are locked out until ${voter.lockedUntil.toLocaleTimeString()}`),
+          { code: 'VOTER_LOCKED' }
+        );
+      }
+
       if (voter.role === 'VOTER' && voter.voteSessionExpiresAt && now > voter.voteSessionExpiresAt && !voter.hasVoted) {
         // Time expired! Lock them out and reset session state
         const penaltyEnd = new Date(voter.voteSessionExpiresAt.getTime() + 20 * 60000);
@@ -318,6 +326,14 @@ export async function fsmStep(voterId: string, action: FsmAction): Promise<FsmSt
 async function readState(voterId: string): Promise<FsmStepResult> {
   const voter = await prisma.voter.findUnique({ where: { id: voterId } });
   const now = new Date();
+
+  if (voter && voter.role === 'VOTER' && voter.lockedUntil && now < voter.lockedUntil) {
+    throw Object.assign(
+      new Error(`You are locked out until ${voter.lockedUntil.toLocaleTimeString()}`),
+      { code: 'VOTER_LOCKED' }
+    );
+  }
+
   if (voter && voter.role === 'VOTER' && voter.voteSessionExpiresAt && now > voter.voteSessionExpiresAt && !voter.hasVoted) {
     const penaltyEnd = new Date(voter.voteSessionExpiresAt.getTime() + 20 * 60000);
     await prisma.votingSession.updateMany({
