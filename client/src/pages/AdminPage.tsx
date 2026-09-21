@@ -17,6 +17,7 @@ export default function AdminPage() {
   const [audit, setAudit] = useState<AuditRes | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -37,9 +38,11 @@ export default function AdminPage() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 5000);
+    const interval = setInterval(() => {
+      if (!isCreating) fetchData();
+    }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isCreating]);
 
   const changeStatus = async (status: 'OPEN' | 'CLOSED') => {
     if (!election) return;
@@ -56,8 +59,73 @@ export default function AdminPage() {
     }
   };
 
+  const handleCreateElection = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const title = formData.get('title') as string;
+    const candidates = [
+      { name: formData.get('c0') as string, slot: 0 },
+      { name: formData.get('c1') as string, slot: 1 },
+      { name: formData.get('c2') as string, slot: 2 },
+      { name: formData.get('c3') as string, slot: 3 },
+    ].filter(c => c.name.trim() !== '');
+
+    if (candidates.length === 0) {
+      alert('Add at least 1 candidate');
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      await adminApi.createElection(title, candidates);
+      setIsCreating(false);
+      await fetchData();
+    } catch (err) {
+      alert('Failed to create election');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   if (loading) return <div className="p-8 text-gray-500">Loading admin dashboard...</div>;
-  if (!election) return <div className="p-8 text-red-500">Error loading election data.</div>;
+  
+  if (!election || isCreating) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-8 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">Create New Election</h2>
+            {election && <button onClick={() => setIsCreating(false)} className="text-gray-500 hover:text-gray-700 font-bold text-xl">×</button>}
+          </div>
+          <form onSubmit={handleCreateElection} className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Election Title</label>
+              <input name="title" required className="w-full border border-gray-300 rounded-lg p-2" placeholder="e.g. Class Rep 2026" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Candidate 1 (Slot 0)</label>
+              <input name="c0" required className="w-full border border-gray-300 rounded-lg p-2" placeholder="Name" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Candidate 2 (Slot 1)</label>
+              <input name="c1" className="w-full border border-gray-300 rounded-lg p-2" placeholder="Name (Optional)" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Candidate 3 (Slot 2)</label>
+              <input name="c2" className="w-full border border-gray-300 rounded-lg p-2" placeholder="Name (Optional)" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Candidate 4 (Slot 3)</label>
+              <input name="c3" className="w-full border border-gray-300 rounded-lg p-2" placeholder="Name (Optional)" />
+            </div>
+            <button type="submit" disabled={actionLoading} className="w-full bg-emerald-600 text-white font-bold rounded-lg p-3 hover:bg-emerald-700 disabled:opacity-50">
+              {actionLoading ? 'Creating...' : 'Create Election'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
@@ -98,9 +166,9 @@ export default function AdminPage() {
             <span className={`flex items-center gap-2 text-sm font-bold ${
               election.status === 'OPEN' ? 'text-emerald-600' :
               election.status === 'CLOSED' ? 'text-red-600' :
-              'text-gray-600'
+              'text-gray-500'
             }`}>
-              <div className={`w-2 h-2 rounded-full ${
+              <span className={`w-2 h-2 rounded-full ${
                 election.status === 'OPEN' ? 'bg-emerald-500 animate-pulse' :
                 election.status === 'CLOSED' ? 'bg-red-500' :
                 'bg-gray-400'
@@ -112,8 +180,13 @@ export default function AdminPage() {
 
         {/* ── Control Panel ──────────────────────────────────────────────── */}
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm mb-8 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
             <h3 className="text-base font-bold text-gray-900">Election Controls</h3>
+            {election.status === 'CLOSED' && (
+              <button onClick={() => setIsCreating(true)} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md shadow-sm transition-colors">
+                + New Election
+              </button>
+            )}
           </div>
           <div className="p-6 flex flex-col md:flex-row gap-6 items-center justify-between">
             <p className="text-sm text-gray-600 max-w-xl">

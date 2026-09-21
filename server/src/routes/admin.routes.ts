@@ -35,9 +35,15 @@ router.post('/election', async (req, res, next) => {
     // Ensure no duplicate slots
     const slots = candidates.map(c => c.slot);
     if (new Set(slots).size !== slots.length) {
-      res.status(400).json({ error: 'Candidate slots must be unique (0–3)' });
+      res.status(400).json({ error: 'Candidate slots must be unique (0-3)' });
       return;
     }
+
+    // Reset all voters so they can vote in the new election
+    await prisma.voter.updateMany({
+      where: { role: 'VOTER' },
+      data: { hasVoted: false, lockedUntil: null, voteSessionExpiresAt: null },
+    });
 
     const election = await prisma.election.create({
       data: {

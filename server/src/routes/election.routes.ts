@@ -20,7 +20,7 @@ router.get('/results', async (req, res, next) => {
     }
 
     const totalVotes = election.candidates.reduce((sum, c) => sum + c.tally, 0);
-    const winner = election.candidates.reduce((best, c) => (c.tally > best.tally ? c : best), election.candidates[0]);
+    const maxVotes = Math.max(...election.candidates.map(c => c.tally));
 
     res.json({
       election: {
@@ -35,7 +35,7 @@ router.get('/results', async (req, res, next) => {
         slot: c.slot,
         tally: c.tally,
         percentage: totalVotes > 0 ? ((c.tally / totalVotes) * 100).toFixed(1) : '0.0',
-        isWinner: c.id === winner?.id,
+        isWinner: totalVotes > 0 && c.tally === maxVotes,
       })),
     });
   } catch (err) {
