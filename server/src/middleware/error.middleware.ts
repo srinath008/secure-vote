@@ -22,6 +22,7 @@ export function errorMiddleware(
     NO_ELECTION:      404,
     UNAUTHORIZED:     401,
     FORBIDDEN:        403,
+    VOTING_TIMEOUT:   403,
   };
 
   const httpStatus = err.code ? (codeToStatus[err.code] ?? status) : status;

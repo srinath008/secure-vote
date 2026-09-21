@@ -103,6 +103,12 @@ router.post('/login', loginLimiter, async (req, res, next) => {
 
       // 2. Check if their previous session expired without voting
       if (voter.voteSessionExpiresAt && voter.voteSessionExpiresAt < now && !voter.hasVoted) {
+        // Explicitly reset VotingSession on expired session
+        await prisma.votingSession.updateMany({
+          where: { voterId: voter.id },
+          data: { q1: 0, q0: 0, latch: false, selSlot: null },
+        });
+
         // They missed the previous 3-minute window! Lock them out.
         const penaltyEnd = new Date(voter.voteSessionExpiresAt.getTime() + 20 * 60000);
         if (now < penaltyEnd) {

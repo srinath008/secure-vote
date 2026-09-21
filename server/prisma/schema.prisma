@@ -96,6 +96,7 @@ model Ballot {
 
 model AuditLog {
   id         String   @id @default(uuid())
+  logIndex   Int      @unique @default(autoincrement())
   electionId String   // Group by election. DO NOT use sessionId/voterId to preserve absolute anonymity.
   fromState  Int      // state code 0-3
   toState    Int      // state code 0-3

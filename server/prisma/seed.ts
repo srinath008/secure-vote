@@ -2,12 +2,13 @@
  * seed.ts — Database seed for SecureVote demo
  *
  * Creates:
- *   1 admin:    ADMIN001 / admin123
+ *   1 admin:    ADMIN001 / admin123 (or process.env.ADMIN_PASSWORD)
  *   30 voters:  CB25001…CB25030 / vote123
  *   1 election: "Class Representative Election 2026" in SETUP status
  *   4 candidates in slots 0–3
  */
 
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
@@ -19,10 +20,11 @@ async function main() {
   console.log('🌱 Seeding SecureVote database with real class list...');
 
   // 1. Admin
-  const adminHash = await bcrypt.hash('admin123', 12);
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+  const adminHash = await bcrypt.hash(adminPassword, 12);
   const admin = await prisma.voter.upsert({
     where:  { rollNumber: 'ADMIN001' },
-    update: {},
+    update: { passwordHash: adminHash },
     create: {
       rollNumber:   'ADMIN001',
       name:         'Admin',
@@ -30,7 +32,7 @@ async function main() {
       role:         'ADMIN',
     },
   });
-  console.log(`  ✔ Admin:  ADMIN001 / admin123`);
+  console.log(`  ✔ Admin:  ADMIN001 / [configured password]`);
 
   // 2. Class Voters
   const classDataPath = path.join(__dirname, '../scripts/class_data.json');

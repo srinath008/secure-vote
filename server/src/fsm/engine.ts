@@ -68,7 +68,7 @@ export async function fsmStep(voterId: string, action: FsmAction): Promise<FsmSt
     return readState(voterId);
   }
 
-  return prisma.$transaction(
+  const result = await prisma.$transaction(
     async (tx) => {
       // ── 1. Find the active election ───────────────────────────────────────
       const election = await tx.election.findFirst({
@@ -100,13 +100,17 @@ export async function fsmStep(voterId: string, action: FsmAction): Promise<FsmSt
       const voter = await tx.voter.findUniqueOrThrow({ where: { id: voterId } });
       const now = new Date();
       if (voter.role === 'VOTER' && voter.voteSessionExpiresAt && now > voter.voteSessionExpiresAt && !voter.hasVoted) {
-        // Time expired! Lock them out.
+        // Time expired! Lock them out and reset session state
         const penaltyEnd = new Date(voter.voteSessionExpiresAt.getTime() + 20 * 60000);
+        await tx.votingSession.update({
+          where: { id: rawSession.id },
+          data: { q1: 0, q0: 0, latch: false, selSlot: null },
+        });
         await tx.voter.update({
           where: { id: voterId },
-          data: { lockedUntil: penaltyEnd, voteSessionExpiresAt: null }
+          data: { lockedUntil: penaltyEnd, voteSessionExpiresAt: null },
         });
-        throw Object.assign(new Error('Your 3-minute voting window has expired. You are locked out for 20 minutes.'), { code: 'VOTING_TIMEOUT' });
+        return { timedOut: true as const };
       }
 
       const fullElection = await tx.election.findUniqueOrThrow({
@@ -216,7 +220,7 @@ export async function fsmStep(voterId: string, action: FsmAction): Promise<FsmSt
         commitFlag = true;
 
         const createAuditLog = async (data: any) => {
-          const lastLog = await tx.auditLog.findFirst({ orderBy: { createdAt: 'desc' } });
+          const lastLog = await tx.auditLog.findFirst({ orderBy: { logIndex: 'desc' } });
           const prevHash = lastLog?.hash || null;
           const hashObj = crypto.createHash('sha256');
           hashObj.update(prevHash || 'GENESIS');
@@ -269,7 +273,7 @@ export async function fsmStep(voterId: string, action: FsmAction): Promise<FsmSt
 
       // ── 9. Write audit log for every tick ──────────────────────────────────
       const createAuditLog2 = async (data: any) => {
-        const lastLog = await tx.auditLog.findFirst({ orderBy: { createdAt: 'desc' } });
+        const lastLog = await tx.auditLog.findFirst({ orderBy: { logIndex: 'desc' } });
         const prevHash = lastLog?.hash || null;
         const hashObj = crypto.createHash('sha256');
         hashObj.update(prevHash || 'GENESIS');
@@ -298,11 +302,38 @@ export async function fsmStep(voterId: string, action: FsmAction): Promise<FsmSt
       timeout: 10000,
     }
   );
+
+  if ('timedOut' in result && result.timedOut) {
+    throw Object.assign(
+      new Error('Your 3-minute voting window has expired. You are locked out for 20 minutes.'),
+      { code: 'VOTING_TIMEOUT' }
+    );
+  }
+
+  return result as FsmStepResult;
 }
 
 // ── Read-only path ────────────────────────────────────────────────────────────
 
 async function readState(voterId: string): Promise<FsmStepResult> {
+  const voter = await prisma.voter.findUnique({ where: { id: voterId } });
+  const now = new Date();
+  if (voter && voter.role === 'VOTER' && voter.voteSessionExpiresAt && now > voter.voteSessionExpiresAt && !voter.hasVoted) {
+    const penaltyEnd = new Date(voter.voteSessionExpiresAt.getTime() + 20 * 60000);
+    await prisma.votingSession.updateMany({
+      where: { voterId },
+      data: { q1: 0, q0: 0, latch: false, selSlot: null },
+    });
+    await prisma.voter.update({
+      where: { id: voterId },
+      data: { lockedUntil: penaltyEnd, voteSessionExpiresAt: null },
+    });
+    throw Object.assign(
+      new Error('Your 3-minute voting window has expired. You are locked out for 20 minutes.'),
+      { code: 'VOTING_TIMEOUT' }
+    );
+  }
+
   // Find most-recently-touched election (open, or last closed)
   const election = await prisma.election.findFirst({
     where: {},
@@ -313,8 +344,6 @@ async function readState(voterId: string): Promise<FsmStepResult> {
   if (!election) {
     throw Object.assign(new Error('No election found'), { code: 'NO_ELECTION' });
   }
-
-  const voter = await prisma.voter.findUnique({ where: { id: voterId } });
   const session = await prisma.votingSession.findUnique({ where: { voterId } });
   const q1 = (session?.q1 ?? 0) as Bit;
   const q0 = (session?.q0 ?? 0) as Bit;

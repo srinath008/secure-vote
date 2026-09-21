@@ -42,7 +42,14 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 
 export function requireVoter(req: Request, res: Response, next: NextFunction): void {
   requireAuth(req, res, () => {
-    // Both voters and admins may use voter-facing endpoints
+    if (req.user.role === 'ADMIN') {
+      res.status(403).json({ error: 'Admins cannot interact with voting machine' });
+      return;
+    }
+    if (req.user.role !== 'VOTER') {
+      res.status(403).json({ error: 'Voter access required' });
+      return;
+    }
     next();
   });
 }

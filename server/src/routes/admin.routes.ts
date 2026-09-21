@@ -72,6 +72,14 @@ router.get('/election/current', async (req, res, next) => {
       res.status(404).json({ error: 'No election found' });
       return;
     }
+    if (election.status === 'OPEN') {
+      const sanitizedCandidates = election.candidates.map(({ tally, ...rest }) => rest);
+      res.json({
+        ...election,
+        candidates: sanitizedCandidates,
+      });
+      return;
+    }
     res.json(election);
   } catch (err) {
     next(err);
@@ -135,7 +143,7 @@ router.get('/audit', async (req, res, next) => {
 
     const [logs, total] = await Promise.all([
       prisma.auditLog.findMany({
-        orderBy: { createdAt: 'desc' },
+        orderBy: { logIndex: 'desc' },
         skip,
         take: limit,
       }),
