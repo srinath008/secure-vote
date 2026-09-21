@@ -63,7 +63,7 @@ async function main() {
   
   const csvPath = path.join(__dirname, '../scripts/student_credentials.csv');
   fs.writeFileSync(csvPath, csvContent);
-  console.log(`  ✔ Credentials exported to: server/scripts/student_credentials.csv (DO NOT COMMIT THIS FILE)`);
+  console.log(`  ✔ Credentials exported to: backend/scripts/student_credentials.csv (DO NOT COMMIT THIS FILE)`);
 
   // 3. Election
   const existing = await prisma.election.findFirst({
@@ -92,7 +92,7 @@ async function main() {
   console.log('\n✅ Seed complete.');
   console.log('\n🎯 Next steps:');
   console.log('  1. Log in as ADMIN001 to open the election.');
-  console.log('  2. Distribute the 4-digit PINs from `server/scripts/student_credentials.csv` to your classmates.');
+  console.log('  2. Distribute the 4-digit PINs from `backend/scripts/student_credentials.csv` to your classmates.');
 }
 
 main()

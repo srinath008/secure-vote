@@ -6,12 +6,12 @@ dist/
 Thumbs.db
 
 # Prisma
-server/prisma/dev.db
-server/prisma/migrations/
+backend/prisma/dev.db
+backend/prisma/migrations/
 
 # Build
-client/dist/
-server/dist/
+frontend/dist/
+backend/dist/
 
 # Logs
 *.log
