@@ -36,8 +36,10 @@ app.get('/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOS
 // ── Error handler (must be last) ──────────────────────────────────────────────
 app.use(errorMiddleware);
 
-app.listen(PORT, () => {
-  console.log(`SecureVote server running on http://localhost:${PORT}`);
-});
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`SecureVote server running on http://localhost:${PORT}`);
+  });
+}
 
 export default app;
