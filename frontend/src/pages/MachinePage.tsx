@@ -141,7 +141,7 @@ export default function MachinePage() {
 
   useEffect(() => {
     refresh();
-    intervalRef.current = setInterval(refresh, 3000);
+    intervalRef.current = setInterval(refresh, 10000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, []);
 

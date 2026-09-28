@@ -116,10 +116,18 @@ router.post('/login', loginLimiter, async (req, res, next) => {
       const valid = await bcrypt.compare(password, voter.passwordHash);
       if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
     } else {
-      if (!otp || otp !== voter.otpCode || !voter.otpExpiresAt || voter.otpExpiresAt < new Date()) {
-        return res.status(401).json({ error: 'Invalid or expired OTP' });
+      let validPwd = false;
+      const pwdAttempt = password || otp;
+      if (pwdAttempt && voter.passwordHash) {
+        validPwd = await bcrypt.compare(pwdAttempt, voter.passwordHash);
       }
-      await prisma.voter.update({ where: { id: voter.id }, data: { otpCode: null, otpExpiresAt: null } });
+      
+      if (!validPwd) {
+        if (!otp || otp !== voter.otpCode || !voter.otpExpiresAt || voter.otpExpiresAt < new Date()) {
+          return res.status(401).json({ error: 'Invalid password or expired OTP' });
+        }
+        await prisma.voter.update({ where: { id: voter.id }, data: { otpCode: null, otpExpiresAt: null } });
+      }
     }
     // --- Reject login if already voted ---
     if (voter.role === 'VOTER' && voter.hasVoted) {

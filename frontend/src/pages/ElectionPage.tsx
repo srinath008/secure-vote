@@ -27,6 +27,16 @@ export default function ElectionPage() {
   const [noElection, setNoElection] = useState(false);
 
   useEffect(() => {
+    if (user?.role === 'ADMIN') {
+      import('../api/fsm').then(({ adminApi }) => {
+        adminApi.getCurrentElection()
+          .then(el => setElection(el as any))
+          .catch(() => setNoElection(true))
+          .finally(() => setLoading(false));
+      });
+      return;
+    }
+
     fsmApi.getState()
       .then(s => {
         setElection({
@@ -41,7 +51,7 @@ export default function ElectionPage() {
         }
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [user]);
 
   const electionStatus = election?.status ?? '';
 
