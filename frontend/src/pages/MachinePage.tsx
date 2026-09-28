@@ -177,7 +177,7 @@ export default function MachinePage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-green-400 font-mono text-xl font-bold tracking-widest">
-            SECUREVOTE / MACHINE VIEW
+            நம்ம VOTE / MACHINE VIEW
           </h1>
           <p className="text-green-700 font-mono text-xs mt-0.5">{election.title} · {election.status}</p>
         </div>
@@ -300,7 +300,7 @@ export default function MachinePage() {
       </div>
 
       <p className="text-green-900 font-mono text-xs mt-6 text-center">
-        SecureVote / Nand2Tetris EVM — FSM-Based Electronic Voting System
+        நம்ம Vote / Nand2Tetris EVM — FSM-Based Electronic Voting System
       </p>
     </div>
   );

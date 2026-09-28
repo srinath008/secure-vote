@@ -89,8 +89,8 @@ router.post('/send-otp', loginLimiter, async (req, res, next) => {
       await transporter.sendMail({
         from: process.env.SMTP_USER,
         to: email,
-        subject: 'SecureVote Login OTP',
-        text: 'Your SecureVote login OTP is: ' + otpCode + '. It expires in 5 minutes.',
+        subject: 'நம்ம Vote Login OTP',
+        text: 'Your நம்ம Vote login OTP is: ' + otpCode + '. It expires in 5 minutes.',
       });
     } else {
       console.log('[DEV] SMTP not configured. OTP for ' + email + ' is: ' + otpCode);

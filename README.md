@@ -1,4 +1,6 @@
-# SecureVote — FSM-Based Electronic Voting System
+# நம்ம Vote — Secure Electronic Voting System
+
+🗳️ **Live Website:** [https://namma-vote.vercel.app](https://namma-vote.vercel.app)
 
 A full-stack reimplementation of a Nand2Tetris HDL electronic voting machine as a deployed web application. The defining requirement: **vote integrity is enforced by a real Finite State Machine**, not scattered conditional logic. Every vote-related mutation passes through a single state-machine step function, built from Boolean gate primitives that mirror the original 74LS-series IC design.
 
