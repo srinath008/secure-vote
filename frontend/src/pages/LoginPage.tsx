@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authApi } from '../api/fsm';
+import { authApi, tokenStore } from '../api/fsm';
 import { useAuth } from '../App';
 
 export default function LoginPage() {
@@ -44,6 +44,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const u = await authApi.login(roll.trim().toUpperCase(), pwd, otp);
+      if ((u as any).token) tokenStore.set((u as any).token);
       setUser(u);
       navigate(u.role === 'ADMIN' ? '/admin' : '/election');
     } catch (err: any) {

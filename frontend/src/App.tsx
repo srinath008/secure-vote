@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
 import { useState, useEffect, createContext, useContext } from 'react';
-import { authApi } from './api/fsm';
+import { authApi, tokenStore } from './api/fsm';
 import LoginPage from './pages/LoginPage';
 import ElectionPage from './pages/ElectionPage';
 import VotePage from './pages/VotePage';
@@ -24,6 +24,7 @@ function Nav() {
 
   const handleLogout = async () => {
     await authApi.logout().catch(() => {});
+    tokenStore.clear();
     setUser(null);
     navigate('/login');
   };

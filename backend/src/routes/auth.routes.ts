@@ -181,14 +181,7 @@ router.post('/login', loginLimiter, async (req, res, next) => {
       { expiresIn: '8h' }
     );
 
-    res
-      .cookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 8 * 60 * 60 * 1000,
-      })
-      .json({ id: voter.id, name: voter.name, role: voter.role });
+    res.json({ id: voter.id, name: voter.name, role: voter.role, token });
   } catch (err) {
     next(err);
   }
@@ -199,9 +192,10 @@ router.post('/logout', (req, res) => {
   res.clearCookie('token').json({ message: 'Logged out' });
 });
 
-// GET /api/auth/me — returns current user info from cookie
+// GET /api/auth/me — returns current user info from Authorization header
 router.get('/me', (req, res) => {
-  const token = req.cookies?.token;
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : req.cookies?.token;
   if (!token) {
     res.status(401).json({ error: 'Not authenticated' });
     return;

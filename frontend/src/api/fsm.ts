@@ -1,11 +1,18 @@
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) || '';
 
+export const tokenStore = {
+  get: () => localStorage.getItem('nv_token'),
+  set: (t: string) => localStorage.setItem('nv_token', t),
+  clear: () => localStorage.removeItem('nv_token'),
+};
+
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = tokenStore.get();
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
-    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options?.headers,
     },
   });
