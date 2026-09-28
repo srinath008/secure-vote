@@ -68,6 +68,8 @@ model Candidate {
   election   Election @relation(fields: [electionId], references: [id])
   name       String
   slot       Int      // 0..3 — the physical button index / encoder input line
+  tagline    String?  // Short campaign tagline
+  promises   String[] // Campaign promises
   tally      Int      @default(0)  // Counter2 equivalent; written ONLY in FSMEngine.step()
 
   @@unique([electionId, slot])

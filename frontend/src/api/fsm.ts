@@ -35,7 +35,7 @@ export interface FsmState {
   latch: boolean;
   selSlot: number | null;
   election: { id: string; title: string; status: string };
-  candidates: { id: string; name: string; slot: number }[];
+  candidates: { id: string; name: string; slot: number; tagline?: string | null; promises: string[] }[];
   note?: string;
 }
 
@@ -95,7 +95,7 @@ export const resultsApi = {
 
 export const adminApi = {
   getCurrentElection: () => apiFetch<ElectionData>('/api/admin/election/current'),
-  createElection: (title: string, candidates: { name: string; slot: number }[]) =>
+  createElection: (title: string, candidates: { name: string; slot: number; tagline?: string; promises: string[] }[]) =>
     apiFetch<ElectionData>('/api/admin/election', {
       method: 'POST', body: JSON.stringify({ title, candidates }),
     }),

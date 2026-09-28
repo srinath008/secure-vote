@@ -39,7 +39,7 @@ export interface FsmStepResult {
   latch: boolean;
   selSlot: number | null;
   election: { id: string; title: string; status: string };
-  candidates: { id: string; name: string; slot: number }[];
+  candidates: { id: string; name: string; slot: number; tagline?: string | null; promises: string[] }[];
   note?: string;
 }
 
@@ -382,7 +382,7 @@ type ElectionWithCandidates = {
   id: string;
   title: string;
   status: string;
-  candidates: { id: string; name: string; slot: number; tally: number }[];
+  candidates: { id: string; name: string; slot: number; tally: number; tagline?: string | null; promises: string[] }[];
 };
 
 function buildResponse(
@@ -407,6 +407,8 @@ function buildResponse(
       id: c.id,
       name: c.name,
       slot: c.slot,
+      tagline: c.tagline,
+      promises: c.promises,
     })),
     ...(note ? { note } : {}),
   };

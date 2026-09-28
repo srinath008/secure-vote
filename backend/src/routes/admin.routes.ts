@@ -11,6 +11,8 @@ router.use(requireAdmin);
 const candidateSchema = z.object({
   name: z.string().min(1).max(100),
   slot: z.number().int().min(0).max(3),
+  tagline: z.string().max(150).optional(),
+  promises: z.array(z.string().min(1).max(300)).max(6).default([]),
 });
 
 const createElectionSchema = z.object({
@@ -49,7 +51,7 @@ router.post('/election', async (req, res, next) => {
       data: {
         title,
         candidates: {
-          create: candidates.map(c => ({ name: c.name, slot: c.slot })),
+          create: candidates.map(c => ({ name: c.name, slot: c.slot, tagline: c.tagline, promises: c.promises })),
         },
       },
       include: { candidates: { orderBy: { slot: 'asc' } } },

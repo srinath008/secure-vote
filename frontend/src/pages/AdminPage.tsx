@@ -63,12 +63,18 @@ export default function AdminPage() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const title = formData.get('title') as string;
-    const candidates = [
-      { name: formData.get('c0') as string, slot: 0 },
-      { name: formData.get('c1') as string, slot: 1 },
-      { name: formData.get('c2') as string, slot: 2 },
-      { name: formData.get('c3') as string, slot: 3 },
-    ].filter(c => c.name.trim() !== '');
+    
+    const candidates = [0, 1, 2, 3].map(slot => {
+      const name = (formData.get(`c${slot}_name`) as string || '').trim();
+      const tagline = (formData.get(`c${slot}_tagline`) as string || '').trim();
+      const promisesStr = (formData.get(`c${slot}_promises`) as string || '').trim();
+      
+      const promises = promisesStr 
+        ? promisesStr.split('\n').map(p => p.trim()).filter(p => p.length > 0)
+        : [];
+        
+      return { name, slot, tagline, promises };
+    }).filter(c => c.name !== '');
 
     if (candidates.length === 0) {
       alert('Add at least 1 candidate');
@@ -92,32 +98,35 @@ export default function AdminPage() {
   if (!election || isCreating) {
     return (
       <div className="min-h-screen bg-gray-50 p-8 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
+        <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-2xl">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold text-gray-900">Create New Election</h2>
             {election && <button onClick={() => setIsCreating(false)} className="text-gray-500 hover:text-gray-700 font-bold text-xl">×</button>}
           </div>
-          <form onSubmit={handleCreateElection} className="space-y-4">
+          <form onSubmit={handleCreateElection} className="space-y-6">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">Election Title</label>
               <input name="title" required className="w-full border border-gray-300 rounded-lg p-2" placeholder="e.g. Class Rep 2026" />
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Candidate 1 (Slot 0)</label>
-              <input name="c0" required className="w-full border border-gray-300 rounded-lg p-2" placeholder="Name" />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {[0, 1, 2, 3].map(slot => (
+                <div key={slot} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  <h3 className="font-bold text-gray-900 mb-3">Candidate {slot + 1} (Slot {slot})</h3>
+                  <div className="space-y-3">
+                    <input name={`c${slot}_name`} required={slot === 0} className="w-full border border-gray-300 rounded-lg p-2 text-sm" placeholder="Full Name" />
+                    <input name={`c${slot}_tagline`} className="w-full border border-gray-300 rounded-lg p-2 text-sm" placeholder="Tagline (e.g. Innovation & Tech)" />
+                    <textarea 
+                      name={`c${slot}_promises`} 
+                      rows={3}
+                      className="w-full border border-gray-300 rounded-lg p-2 text-sm" 
+                      placeholder="Promises (One per line)&#10;Better Wi-Fi&#10;More Hackathons" 
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Candidate 2 (Slot 1)</label>
-              <input name="c1" className="w-full border border-gray-300 rounded-lg p-2" placeholder="Name (Optional)" />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Candidate 3 (Slot 2)</label>
-              <input name="c2" className="w-full border border-gray-300 rounded-lg p-2" placeholder="Name (Optional)" />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Candidate 4 (Slot 3)</label>
-              <input name="c3" className="w-full border border-gray-300 rounded-lg p-2" placeholder="Name (Optional)" />
-            </div>
+
             <button type="submit" disabled={actionLoading} className="w-full bg-emerald-600 text-white font-bold rounded-lg p-3 hover:bg-emerald-700 disabled:opacity-50">
               {actionLoading ? 'Creating...' : 'Create Election'}
             </button>
